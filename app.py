@@ -18,7 +18,20 @@ st.title("📈 美股新聞情感分析器")
 st.markdown("輸入美股代碼（如 AAPL、TSLA），系統將擷取最近 14 日內的新聞並分析情感傾向。")
 
 # Bing News Search API (免費方式以爬蟲為主)
+import feedparser
+
 def search_news(ticker, max_articles=10):
+    today = datetime.today()
+    after_date = (today - timedelta(days=14)).strftime("%Y-%m-%d")
+    rss_url = f"https://news.google.com/rss/search?q={ticker}+stock+after:{after_date}&hl=en-US&gl=US&ceid=US:en"
+    feed = feedparser.parse(rss_url)
+    links = []
+    for entry in feed.entries:
+        links.append(entry.link)
+        if len(links) >= max_articles:
+            break
+    return links
+
     headers = {'User-Agent': 'Mozilla/5.0'}
     query = f"{ticker} stock site:reuters.com OR site:bloomberg.com OR site:finance.yahoo.com"
     search_url = f'https://www.bing.com/news/search?q={query}&qft=sortbydate="1"&FORM=HDRSC6'
