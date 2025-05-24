@@ -2,12 +2,38 @@ import streamlit as st
 import requests
 from bs4 import BeautifulSoup
 from transformers import BertTokenizer, BertForSequenceClassification, pipeline
+from datetime import datetime, timedelta
+import yfinance as yf
 
 @st.cache_resource
 def load_model():
     model = BertForSequenceClassification.from_pretrained("ProsusAI/finbert")
     tokenizer = BertTokenizer.from_pretrained("ProsusAI/finbert")
     return pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
+
+nlp = load_model()
+
+st.set_page_config(page_title="股票新聞情感分析器", layout="centered")
+st.title("📈 美股新聞情感分析器")
+st.markdown("輸入美股代碼（如 AAPL、TSLA），系統將擷取最近 14 日內的新聞並分析情感傾向。")
+
+# Bing News Search API (免費方式以爬蟲為主)
+def search_news(ticker, max_articles=10):
+    headers = {'User-Agent': 'Mozilla/5.0'}
+    query = f"{ticker} stock site:reuters.com OR site:bloomberg.com OR site:finance.yahoo.com"
+    search_url = f"https://www.bing.com/news/search?q={query}&qft=sortbydate="1"&FORM=HDRSC6"
+    res = requests.get(search_url, headers=headers)
+    soup = BeautifulSoup(res.text, 'html.parser')
+    results = soup.find_all('a', href=True)
+    links = []
+    for r in results:
+        href = r['href']
+        if any(domain in href for domain in ['reuters.com', 'bloomberg.com', 'finance.yahoo.com']):
+            if href not in links:
+                links.append(href)
+        if len(links) >= max_articles:
+            break
+    return links
 
 def extract_article_text(url):
     try:
@@ -20,26 +46,35 @@ def extract_article_text(url):
     except Exception:
         return None
 
-nlp = load_model()
+ticker = st.text_input("請輸入美股代碼 (如 AAPL、TSLA)").upper()
 
-st.set_page_config(page_title="金融情感分析器", layout="centered")
-st.title("📈 金融文章情感分析器")
-st.markdown("輸入一篇金融新聞連結，自動分析其情緒是正面、負面或中立。")
+if ticker:
+    st.info("📡 正在搜尋相關新聞...")
+    news_links = search_news(ticker)
 
-url = st.text_input("請輸入文章連結（例如 Bloomberg、Reuters、Yahoo Finance）")
+    sentiments = []
+    summaries = []
 
-if url:
-    with st.spinner("⏳ 正在擷取文章內容..."):
-        text = extract_article_text(url)
+    for link in news_links:
+        text = extract_article_text(link)
+        if text:
+            short_text = text[:512]
+            result = nlp(short_text)
+            sentiments.append(result[0]['score'] * (1 if result[0]['label'] == 'positive' else -1 if result[0]['label'] == 'negative' else 0))
+            summaries.append((link, result[0]['label'], round(result[0]['score'] * 100, 2)))
 
-    if not text:
-        st.error("❌ 無法擷取內容，請確認連結是否正確")
+    if summaries:
+        st.subheader("📰 最新新聞情緒分析結果：")
+        for i, (link, label, score) in enumerate(summaries, 1):
+            st.markdown(f"**{i}. [{label}] ({score}%)** ➜ [查看新聞]({link})")
+
+        avg_sentiment = sum(sentiments) / len(sentiments)
+        st.subheader("📊 整體平均情緒分數：")
+        if avg_sentiment > 0.1:
+            st.success(f"偏正面：{round(avg_sentiment, 2)}")
+        elif avg_sentiment < -0.1:
+            st.error(f"偏負面：{round(avg_sentiment, 2)}")
+        else:
+            st.warning(f"情緒中立：{round(avg_sentiment, 2)}")
     else:
-        st.subheader("📄 文章內容")
-        st.write(text[:1000] + ("..." if len(text) > 1000 else ""))
-
-        st.subheader("📊 情感分析結果")
-        result = nlp(text[:512])
-        label = result[0]['label']
-        score = round(result[0]['score'] * 100, 2)
-        st.success(f"**{label}**（信心值：{score}%）")
+        st.warning("未擷取到有效新聞或情感無法分析。")
