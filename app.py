@@ -4,6 +4,9 @@ from bs4 import BeautifulSoup
 from transformers import BertTokenizer, BertForSequenceClassification, pipeline
 from datetime import datetime, timedelta
 import yfinance as yf
+import feedparser
+
+st.set_page_config(page_title="股票新聞情感分析器", layout="centered")
 
 @st.cache_resource
 def load_model():
@@ -13,10 +16,34 @@ def load_model():
 
 nlp = load_model()
 
-st.set_page_config(page_title="股票新聞情感分析器", layout="centered")
 st.title("📈 美股新聞情感分析器")
 st.markdown("輸入美股代碼（如 AAPL、TSLA），系統將擷取最近 14 日內的新聞並分析情感傾向。")
+def search_news(ticker, max_articles=10):
+    today = datetime.today()
+    after_date = (today - timedelta(days=14)).strftime("%Y-%m-%d")
+    rss_url = f"https://news.google.com/rss/search?q={ticker}+stock+after:{after_date}&hl=en-US&gl=US&ceid=US:en"
+    feed = feedparser.parse(rss_url)
 
+    links = []
+    for entry in feed.entries:
+        st.write('🧾 找到新聞：', entry.title, entry.link)
+        links.append(entry.link)
+        if len(links) >= max_articles:
+            break
+
+    return links
+def extract_article_text(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        paragraphs = soup.find_all('p')
+        text = '\n'.join([p.get_text() for p in paragraphs])
+        if len(text) < 200:
+            text = soup.get_text()
+        return text.strip()
+    except Exception:
+        return None
 ticker = st.text_input("請輸入美股代碼 (如 AAPL、TSLA)").upper()
 
 if ticker:
@@ -49,34 +76,3 @@ if ticker:
             st.warning(f"情緒中立：{round(avg_sentiment, 2)}")
     else:
         st.warning("未擷取到有效新聞或情感無法分析。")
-
-
-# Bing News Search API (免費方式以爬蟲為主)
-import feedparser
-
-def search_news(ticker, max_articles=10):
-    today = datetime.today()
-    after_date = (today - timedelta(days=14)).strftime("%Y-%m-%d")
-    rss_url = f"https://news.google.com/rss/search?q={ticker}+stock+after:{after_date}&hl=en-US&gl=US&ceid=US:en"
-    feed = feedparser.parse(rss_url)
-
-    links = []
-    for entry in feed.entries:
-        st.write('🧾 找到新聞：', entry.title, entry.link)
-        links.append(entry.link)
-        if len(links) >= max_articles:
-            break
-
-    return links
-def extract_article_text(url):
-    try:
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(url, headers=headers, timeout=10)
-        soup = BeautifulSoup(res.text, 'html.parser')
-        paragraphs = soup.find_all('p')
-        text = '\n'.join([p.get_text() for p in paragraphs])
-        if len(text) < 200:
-            text = soup.get_text()
-        return text.strip()
-    except Exception as e:
-        return None
