@@ -17,6 +17,40 @@ st.set_page_config(page_title="股票新聞情感分析器", layout="centered")
 st.title("📈 美股新聞情感分析器")
 st.markdown("輸入美股代碼（如 AAPL、TSLA），系統將擷取最近 14 日內的新聞並分析情感傾向。")
 
+ticker = st.text_input("請輸入美股代碼 (如 AAPL、TSLA)").upper()
+
+if ticker:
+    st.info("📡 正在搜尋相關新聞...")
+    news_links = search_news(ticker)
+
+    sentiments = []
+    summaries = []
+
+    for link in news_links:
+        text = extract_article_text(link)
+        if text:
+            short_text = text[:512]
+            result = nlp(short_text)
+            sentiments.append(result[0]['score'] * (1 if result[0]['label'] == 'positive' else -1 if result[0]['label'] == 'negative' else 0))
+            summaries.append((link, result[0]['label'], round(result[0]['score'] * 100, 2)))
+
+    if summaries:
+        st.subheader("📰 最新新聞情緒分析結果：")
+        for i, (link, label, score) in enumerate(summaries, 1):
+            st.markdown(f"**{i}. [{label}] ({score}%)** ➜ [查看新聞]({link})")
+
+        avg_sentiment = sum(sentiments) / len(sentiments)
+        st.subheader("📊 整體平均情緒分數：")
+        if avg_sentiment > 0.1:
+            st.success(f"偏正面：{round(avg_sentiment, 2)}")
+        elif avg_sentiment < -0.1:
+            st.error(f"偏負面：{round(avg_sentiment, 2)}")
+        else:
+            st.warning(f"情緒中立：{round(avg_sentiment, 2)}")
+    else:
+        st.warning("未擷取到有效新聞或情感無法分析。")
+
+
 # Bing News Search API (免費方式以爬蟲為主)
 import feedparser
 
