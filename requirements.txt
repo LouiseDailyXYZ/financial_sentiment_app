@@ -1,4 +1,5 @@
 streamlit
-newspaper3k
+beautifulsoup4
+requests
 transformers
 torch

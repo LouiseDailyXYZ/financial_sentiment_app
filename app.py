@@ -1,12 +1,24 @@
 import streamlit as st
+import requests
+from bs4 import BeautifulSoup
 from transformers import BertTokenizer, BertForSequenceClassification, pipeline
-from newspaper import Article
 
 @st.cache_resource
 def load_model():
     model = BertForSequenceClassification.from_pretrained("ProsusAI/finbert")
     tokenizer = BertTokenizer.from_pretrained("ProsusAI/finbert")
     return pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
+
+def extract_article_text(url):
+    try:
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(url, headers=headers, timeout=10)
+        soup = BeautifulSoup(res.text, 'html.parser')
+        paragraphs = soup.find_all('p')
+        text = '\n'.join([p.get_text() for p in paragraphs])
+        return text.strip()
+    except Exception:
+        return None
 
 nlp = load_model()
 
@@ -17,24 +29,17 @@ st.markdown("輸入一篇金融新聞連結，自動分析其情緒是正面、�
 url = st.text_input("請輸入文章連結（例如 Bloomberg、Reuters、Yahoo Finance）")
 
 if url:
-    try:
-        with st.spinner("⏳ 正在擷取文章內容..."):
-            article = Article(url)
-            article.download()
-            article.parse()
-            text = article.text
+    with st.spinner("⏳ 正在擷取文章內容..."):
+        text = extract_article_text(url)
 
-        if not text:
-            st.error("❌ 無法擷取內容，請確認連結是否正確")
-        else:
-            st.subheader("📄 文章內容")
-            st.write(text[:1000] + ("..." if len(text) > 1000 else ""))
+    if not text:
+        st.error("❌ 無法擷取內容，請確認連結是否正確")
+    else:
+        st.subheader("📄 文章內容")
+        st.write(text[:1000] + ("..." if len(text) > 1000 else ""))
 
-            st.subheader("📊 情感分析結果")
-            result = nlp(text[:512])
-            label = result[0]['label']
-            score = round(result[0]['score'] * 100, 2)
-            st.success(f"**{label}**（信心值：{score}%）")
-
-    except Exception as e:
-        st.error(f"🚨 發生錯誤：{e}")
+        st.subheader("📊 情感分析結果")
+        result = nlp(text[:512])
+        label = result[0]['label']
+        score = round(result[0]['score'] * 100, 2)
+        st.success(f"**{label}**（信心值：{score}%）")
