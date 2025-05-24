@@ -8,10 +8,9 @@ import yfinance as yf
 @st.cache_resource
 @st.cache_resource
 @st.cache_resource
+@st.cache_resource
 def load_model():
-    tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-    model = AutoModelForSequenceClassification.from_pretrained("distilbert-base-uncased-finetuned-sst-2-english")
-    return pipeline("sentiment-analysis", model=model, tokenizer=tokenizer)
+    return pipeline("sentiment-analysis", model="distilbert-base-uncased-finetuned-sst-2-english")
 def search_news(ticker, max_articles=10):
     today = datetime.today()
     after_date = (today - timedelta(days=14)).strftime("%Y-%m-%d")
