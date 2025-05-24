@@ -21,7 +21,7 @@ st.markdown("輸入美股代碼（如 AAPL、TSLA），系統將擷取最近 14 
 def search_news(ticker, max_articles=10):
     headers = {'User-Agent': 'Mozilla/5.0'}
     query = f"{ticker} stock site:reuters.com OR site:bloomberg.com OR site:finance.yahoo.com"
-    search_url = f"https://www.bing.com/news/search?q={query}&qft=sortbydate="1"&FORM=HDRSC6"
+    search_url = f'https://www.bing.com/news/search?q={query}&qft=sortbydate="1"&FORM=HDRSC6'
     res = requests.get(search_url, headers=headers)
     soup = BeautifulSoup(res.text, 'html.parser')
     results = soup.find_all('a', href=True)
