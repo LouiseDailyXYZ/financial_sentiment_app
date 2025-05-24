@@ -25,30 +25,15 @@ def search_news(ticker, max_articles=10):
     after_date = (today - timedelta(days=14)).strftime("%Y-%m-%d")
     rss_url = f"https://news.google.com/rss/search?q={ticker}+stock+after:{after_date}&hl=en-US&gl=US&ceid=US:en"
     feed = feedparser.parse(rss_url)
+
     links = []
     for entry in feed.entries:
         st.write('🧾 找到新聞：', entry.title, entry.link)
         links.append(entry.link)
         if len(links) >= max_articles:
             break
-    return links
 
-    headers = {'User-Agent': 'Mozilla/5.0'}
-    query = f"{ticker} stock site:reuters.com OR site:bloomberg.com OR site:finance.yahoo.com"
-    search_url = f'https://www.bing.com/news/search?q={query}&qft=sortbydate="1"&FORM=HDRSC6'
-    res = requests.get(search_url, headers=headers)
-    soup = BeautifulSoup(res.text, 'html.parser')
-    results = soup.find_all('a', href=True)
-    links = []
-    for r in results:
-        href = r['href']
-        if any(domain in href for domain in ['reuters.com', 'bloomberg.com', 'finance.yahoo.com']):
-            if href not in links:
-                links.append(href)
-        if len(links) >= max_articles:
-            break
     return links
-
 def extract_article_text(url):
     try:
         headers = {'User-Agent': 'Mozilla/5.0'}
